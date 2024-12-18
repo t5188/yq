@@ -45,7 +45,7 @@ jobs:
         # 编译适用于 ARM64 架构的二进制文件
         CGO_ENABLED=1 CC=${CC}/aarch64-linux-android33-clang GOARCH=arm64 GOOS=android go build -tags yq_toml -tags yq_xml -tags yq_json -ldflags "-s -w" -o bin/yq_android_arm64
         # 编译适用于 ARM 架构的二进制文件
-        CGO_ENABLED=1 CC=${CC}/armv7a-linux-androideabi33-clang GOARCH=arm GOARM=7 GOOS=android go build -tags yq_toml -tags yq_xml -tags yq_json -ldflags "-s -w" -o bin/yq_android_arm
+        # CGO_ENABLED=1 CC=${CC}/armv7a-linux-androideabi33-clang GOARCH=arm GOARM=7 GOOS=android go build -tags yq_toml -tags yq_xml -tags yq_json -ldflags "-s -w" -o bin/yq_android_arm
 
     - name: Upload artifact
       uses: actions/upload-artifact@v3
@@ -54,7 +54,7 @@ jobs:
         name: yq-artifact
         path: yq/bin/  # 上传编译后的二进制文件
 
-  upload-prerelease:
+  upload-release:
     if: ${{ github.ref_type=='branch' }}
     needs: [build]
     runs-on: ubuntu-latest
