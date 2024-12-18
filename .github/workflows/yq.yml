@@ -16,23 +16,27 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
+          go-version: '1.20'  # 使用支持的 Go 版本
 
-      # 3. 编译 yq
+      # 3. 使用 go get 获取 yq 源码
+      - name: Install yq using go get
+        run: |
+          go get github.com/mikefarah/yq/v4
+
+      # 4. 编译 yq
       - name: Build yq for Android (ARM64)
         run: |
-          git clone https://github.com/mikefarah/yq.git
-          cd yq
+          cd $GITHUB_WORKSPACE
           GOOS=android GOARCH=arm64 go build -o yq
 
-      # 4. 打包编译好的文件
+      # 5. 打包编译好的文件
       - name: Archive compiled yq
         run: |
           mkdir -p artifacts
           mv yq artifacts/
           tar -czvf yq-android-arm64.tar.gz -C artifacts yq
 
-      # 5. 上传编译好的二进制文件作为 Artifacts
+      # 6. 上传编译好的二进制文件作为 Artifacts
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
