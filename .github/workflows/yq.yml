@@ -67,8 +67,8 @@ jobs:
       - name: Upload to GitHub as prerelease
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: prerelease
+          tag_name: yq4android
           files: |
             bin/yq_*
-          prerelease: true
-          generate_release_notes: true
+          prerelease: false
+          generate_release_notes: false
