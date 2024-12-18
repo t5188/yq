@@ -1,8 +1,7 @@
 name: Build yq Android
 
 on:
-  push:
-    workflow_dispatch:  # 支持手动触发
+  workflow_dispatch:  # 支持手动触发
 
 jobs:
   build:
