@@ -2,7 +2,8 @@ name: Build yq Android
 
 on:
   push:
-    branches: [master]  # 触发动作的分支
+    branches: [main]  # 触发动作的分支
+  workflow_dispatch:  # 添加手动触发支持
 
 jobs:
   build:
