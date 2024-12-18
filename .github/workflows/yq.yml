@@ -2,74 +2,75 @@ name: Build yq Android
 
 on:
   push:
-    branches: [main]  # 触发动作的分支
-  workflow_dispatch:  # 添加手动触发支持
+    branches: [main]  # 当推送到 main 分支时触发
+  workflow_dispatch:  # 支持手动触发
 
 jobs:
   build:
     name: Build yq for Android
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # 使用 Ubuntu 最新版本的运行环境
 
     steps:
-      # 1. Checkout yq 仓库的代码
-      - name: Checkout yq repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整的 Git 历史
+
+    - name: Clone yq repository
+      run: git clone https://github.com/mikefarah/yq.git  # 克隆 yq 仓库
+
+    - name: Set up Go environment
+      uses: actions/setup-go@v4
+      with:
+        go-version: 'latest'  # 使用 Go 的最新版
+
+    - name: Set up Android NDK
+      uses: nttld/setup-ndk@v1
+      id: setup-ndk
+      with:
+        ndk-version: r25b
+        add-to-path: false
+        local-cache: false
+
+    - name: Get dependencies
+      run: |
+        cd yq  # 进入到 yq 仓库目录
+        go get -v -t -d ./...  # 获取 Go 依赖包
+
+    - name: Build yq for Android
+      env:
+        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+      run: |
+        cd yq  # 进入 yq 项目目录
+        mkdir -p bin
+        CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin
+        # 编译适用于 ARM64 架构的二进制文件
+        CGO_ENABLED=1 CC=${CC}/aarch64-linux-android33-clang GOARCH=arm64 GOOS=android go build -tags yq_toml -tags yq_xml -tags yq_json -ldflags "-s -w" -o bin/yq_android_arm64
+        # 编译适用于 ARM 架构的二进制文件
+        CGO_ENABLED=1 CC=${CC}/armv7a-linux-androideabi33-clang GOARCH=arm GOARM=7 GOOS=android go build -tags yq_toml -tags yq_xml -tags yq_json -ldflags "-s -w" -o bin/yq_android_arm
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      if: ${{ success() }}  # 只有在成功时上传产物
+      with:
+        name: yq-artifact
+        path: yq/bin/  # 上传编译后的二进制文件
+
+  upload-prerelease:
+    if: ${{ github.ref_type=='branch' }}
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
         with:
-          repository: 'mikefarah/yq'  # 从官方仓库克隆
-          ref: 'master'  # 选择你需要的分支
+          name: yq-artifact
+          path: bin/
 
-      # 2. 设置 Go 环境
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - name: Upload to GitHub as prerelease
+        uses: softprops/action-gh-release@v1
         with:
-          go-version: '^1.20'  # 设置 Go 版本，避免版本过高的兼容性问题
-
-      # 3. 安装 Android NDK
-      - name: Set up Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r25b
-          add-to-path: false
-          local-cache: false
-
-      # 4. 获取项目依赖
-      - name: Get dependencies
-        run: |
-          go get -v -t -d ./...
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          fi
-
-      # 5. 检查并执行构建
-      - name: Check the build
-        shell: bash -l {0}
-        run: |
-          export PATH=${PATH}:`go env GOPATH`/bin
-          scripts/devtools.sh
-          make local
-
-      # 6. 编译 Android 版本的 yq
-      - name: Build Android binaries
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: |
-          mkdir -p bin
-          CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin
-          CGO_ENABLED=1 CC=${CC}/aarch64-linux-android33-clang GOARCH=arm64 GOOS=android go build -tags yq_toml -tags yq_xml -tags yq_json -ldflags "-s -w" -o bin/yq_android_arm64
-          CGO_ENABLED=1 CC=${CC}/armv7a-linux-androideabi33-clang GOARCH=arm GOARM=7 GOOS=android go build -tags yq_toml -tags yq_xml -tags yq_json -ldflags "-s -w" -o bin/yq_android_arm
-          # 这里你也可以继续添加其他架构，比如 x86_64 或 i686。
-
-      # 7. 打包编译后的二进制文件
-      - name: Archive compiled binaries
-        run: |
-          mkdir -p artifacts
-          mv bin/yq_android_* artifacts/
-          tar -czvf yq-android.tar.gz -C artifacts yq_android_*
-
-      # 8. 上传编译后的二进制文件
-      - uses: actions/upload-artifact@v3
-        if: ${{ success() }}
-        with:
-          name: yq-android-binaries
-          path: yq-android.tar.gz
+          tag_name: prerelease
+          files: |
+            bin/yq_*
+          prerelease: true
+          generate_release_notes: true
